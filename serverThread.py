@@ -2,10 +2,8 @@ from const import *
 from protocol import MessageProtocol, ConnectionBroken
 
 from datetime import datetime
-import tkinter
 import socket
 import threading
-import re
 
 class Message():
     """ Keeps track of contents of a message and metadata (username, time)"""
@@ -59,12 +57,6 @@ class Server(threading.Thread):
         """
         try:            
             username = connection.get_message()
-            # If the string contains only blank characters or is empty, refuse connection
-            if not re.match(r"\S", username):
-                connection.send_message("Invalid username")
-                connection.terminate()
-                return
-            
             usertag = "{}@{}".format(username, ip)
             # Keeps track of the newest message that was sent out to the client
             message_counter = 0
@@ -75,7 +67,10 @@ class Server(threading.Thread):
             while True:
                 # Send new messages to the client
                 data_to_send, message_counter = self.get_new_messages(message_counter)
-                connection.send_message(data_to_send)
+                if data_to_send:
+                    connection.send_message(data_to_send)
+                else:
+                    connection.ping()
 
                 # Receive new messages from the client
                 received_data = connection.get_message()

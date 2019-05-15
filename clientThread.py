@@ -2,7 +2,6 @@ from const import *
 
 from protocol import MessageProtocol, ConnectionBroken
 
-import tkinter as tk
 import socket
 import threading
 import queue
@@ -33,16 +32,17 @@ class ClientThread(threading.Thread):
             opened_socket.connect((CLIENT_CONNECTION_POINT, SERVER_PORT))            
             self.connection = MessageProtocol(opened_socket)
         except OSError as e:
-            print("Unable to connect to {}:{}. {}"
-                .format(CLIENT_CONNECTION_POINT, SERVER_PORT, str(e)))
+            self._notify_observers(["Unable to connect to {}:{}. {}"
+                .format(CLIENT_CONNECTION_POINT, SERVER_PORT, str(e))])
             return
 
         try:            
             self.connection.send_message(self.username)            
             while True:
-                received_data = self.connection.get_message()
-                messages = received_data.split("\n")
-                self._notify_observers(messages)                
+                received_data = self.connection.get_message()                
+                if received_data:
+                    messages = received_data.split("\n")
+                    self._notify_observers(messages)                
                 try:
                     self.connection.send_message(self.message_queue.get(timeout=PING_DELAY))
                 except queue.Empty:
@@ -50,13 +50,14 @@ class ClientThread(threading.Thread):
 
         except ConnectionBroken as e:
             self.connection.terminate()
-            print("Client disonnected with error {}".format(str(e)))
+            self._notify_observers(["Client disonnected with error {}".format(str(e))])            
 
     def stop(self):
         """
         Stops the socket connection, in effect also stopping the thread.
         """
-        self.connection.terminate()
+        if self.connection:
+            self.connection.terminate()
 
     def send_message(self, message):
         """
@@ -85,7 +86,10 @@ class ClientThread(threading.Thread):
         new_messages (list): List of new messages
         """
         for observer in self.observers:
-            observer.notify(new_messages)            
-
-    
-
+            try:
+                observer.notify(new_messages)            
+            except Exception:
+                pass
+                # If observer raises some kind of exception
+                # just ignore it
+                    

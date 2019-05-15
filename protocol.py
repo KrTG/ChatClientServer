@@ -59,5 +59,9 @@ class MessageProtocol():
 
     def terminate(self):
         """ Terminates the connection. """
-        self.socket.shutdown(socket.SHUT_RDWR)
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            # If its already closed ignore it
+            pass
         self.socket.close()
