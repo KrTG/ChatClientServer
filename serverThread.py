@@ -21,7 +21,15 @@ class Message():
             self.message
         )
 
-class Server(threading.Thread):
+class Client():
+    """
+    Represents a connected client.
+    """
+
+    def __init__(self, usertag):
+        self.usertag = usertag
+
+class ServerThread(threading.Thread):
     """
     Allows for running the server inside a separate thread. Starts more threads
     for each client connection.
@@ -32,6 +40,10 @@ class Server(threading.Thread):
         self.messages_lock = threading.Lock()
         self.socket = socket.socket()
         self.running = False
+
+        self.connected_clients = []
+        self.observers = []
+        
 
     def get_new_messages(self, previous_index):
         """
@@ -55,14 +67,18 @@ class Server(threading.Thread):
         connection: socket wrapped inside the MessageProtocol class,
         ip: The IP address of the connected client
         """
+        client = None
         try:            
             username = connection.get_message()
             usertag = "{}@{}".format(username, ip)
+            client = Client(usertag)
             # Keeps track of the newest message that was sent out to the client
             message_counter = 0
         
             joined_message = "{} has joined the chat.".format(usertag)
             self.messages.append(Message("Server", datetime.now(), joined_message))                             
+            self.connected_clients.append(client)
+            self._notify_observers()
             
             while True:
                 # Send new messages to the client
@@ -77,6 +93,8 @@ class Server(threading.Thread):
                 if received_data:           
                     self.messages.append(Message(usertag, datetime.now(), received_data))                                
         except ConnectionBroken as e:
+            self.connected_clients.remove(client)
+            self._notify_observers()
             connection.terminate()
             print("Client disonnected with error {}".format(str(e)))
 
@@ -127,19 +145,24 @@ class Server(threading.Thread):
         with socket.socket() as s:
             s.connect((CLIENT_CONNECTION_POINT, SERVER_PORT))
 
+    def add_observer(self, observer):
+        """
+        Adds an observer that will be notified when new messages from the server
+        arrive
 
-if __name__ == "__main__":
-    import signal
-    import sys
+        Parameters:
+        observer: An object with a 'notify' method
+        """
+        self.observers.append(observer)
 
-    server = Server()
-    server.start()    
-
-    def shutdown_handler(sig, frame):
-        print("Server exit with Ctrl+C")
-        server.stop()
-        sys.exit(0)
-    signal.signal(signal.SIGINT, shutdown_handler)
-    
-    print("Press Ctrl+C to quit")
-    while True: pass #Wait for Ctrl+C
+    def _notify_observers(self):
+        """
+        Notifies all observers that the connected client list has changed.
+        """
+        for observer in self.observers:
+            try:
+                observer.notify([c.usertag for c in self.connected_clients])
+            except Exception:
+                pass
+                # If observer raises some kind of exception
+                # just ignore it
