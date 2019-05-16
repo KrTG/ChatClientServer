@@ -46,6 +46,9 @@ class MessageProtocol():
         Parameters:
         message (str): The message to send
         """
+        # Remove the special tags if they are supplied directly
+        message = message.replace(self.ping_tag, "")
+        message = message.replace(self.delimiter, "")
         try:
             self.socket.sendall(bytes(message + self.delimiter, encoding=self.encoding))
         except OSError as e:
@@ -55,7 +58,10 @@ class MessageProtocol():
         """
         Sends a ping message to inform the other side that the connection is alive.
         """
-        self.send_message(self.ping_tag)
+        try:
+            self.socket.sendall(bytes(self.ping_tag + self.delimiter, encoding=self.encoding))
+        except OSError as e:
+            raise ConnectionBroken(e)
 
     def terminate(self):
         """ Terminates the connection. """

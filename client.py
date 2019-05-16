@@ -13,7 +13,8 @@ INPUTBOX_HEIGHT = 8
 class UsernamePrompt(tk.Frame):
     """Prompts the user for a username"""
     def __init__(self, master=None):
-        super().__init__(master, bg=BACKGROUND)        
+        super().__init__(master, bg=BACKGROUND)
+        self.username = None
         self.create_elements()        
     
     def create_elements(self):
